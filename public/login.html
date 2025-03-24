@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <img src="logo.png" alt="Logo" class="logo">
+        
+        <!-- Formulario Login -->
+        <form id="loginForm" class="auth-form">
+            <h2>Bienvenido</h2>
+            <input type="text" id="username" placeholder="Nombre de usuario" required>
+            <input type="password" id="password" placeholder="Contraseña" required>
+            <button type="submit">Ingresar</button>
+        </form>
+
+        <!-- Formulario Registro (Oculto) -->
+        <form id="registerForm" class="auth-form" style="display: none;">
+            <h2>Registrarse</h2>
+            <input type="text" id="newUsername" placeholder="Nombre de usuario" required>
+            <input type="password" id="newPassword" placeholder="Contraseña" required>
+            <button type="submit">Crear cuenta</button>
+        </form>
+
+        <div class="toggle-form" onclick="toggleForms()">
+            ¿No tienes cuenta? <span>Regístrate aquí</span>
+        </div>
+    </div>
+    <script src="scripts.js"></script>
+</body>
+</html>
