@@ -40,10 +40,41 @@ function loadUserData() {
     }
     
     // Cerrar menú al hacer clic en cualquier lugar
-    document.addEventListener('click', () => {
+    document.addEventListener('DOMContentLoaded', () => {
+    // Verificar si hay usuario logueado
+    currentUser = loadCurrentUser();
+    if (!currentUser) {
+        window.location.href = 'login.html';
+        return;
+    }
         const dropdown = document.getElementById('menuDropdown');
         if (dropdown) dropdown.classList.remove('show');
     });
+}
+
+// Función unificada para cargar tickets
+async function loadTickets() {
+    try {
+        let tickets = [];
+        
+        if (currentUser?.role === 'admin') {
+            const response = await fetch('/tickets/admin');
+            tickets = await response.json();
+        } else {
+            const response = await fetch(`/tickets/user/${currentUser.username}`);
+            tickets = await response.json();
+        }
+
+        // Aplicar filtro de estado
+        const statusFilter = document.getElementById('filterStatus').value;
+        if (statusFilter !== 'all') {
+            tickets = tickets.filter(ticket => ticket.status === statusFilter);
+        }
+
+        renderTickets(tickets, currentUser?.role === 'admin' ? '#adminTickets' : '#userTickets');
+    } catch (error) {
+        console.error('Error:', error);
+    }
 }
 
 // Cargar tickets del usuario
@@ -81,7 +112,7 @@ function renderTickets(tickets, containerSelector) {
         const ticketElement = document.createElement('div');
         ticketElement.className = 'ticket-card';
         ticketElement.innerHTML = `
-            <h3 class="ticket-title">${truncateText(ticket.title, 40)}</h3>
+            <h3 class="ticket-title">${truncateText(ticket.title, 30)}</h3>
             <p class="ticket-description">${truncateText(ticket.description, 100)}</p>
             <div class="ticket-meta">
                 <p>📅 ${formatDate(ticket.createdAt)}</p>
@@ -141,7 +172,6 @@ window.toggleForms = function() {
 // Logout
 window.logout = function() {
     sessionStorage.removeItem('currentUser');
-    currentUser = null;
     window.location.href = 'login.html';
 };
 
@@ -212,19 +242,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Función para mostrar el modal con detalles completos
 function showTicketDetails(ticket) {
-    const modal = document.createElement('div');
-    modal.className = 'ticket-modal';
+        const existingModal = document.querySelector('.ticket-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'ticket-modal';
     modal.innerHTML = `
-        <h3>${ticket.title}</h3>
-        <p class="ticket-description">${ticket.description}</p>
-        <p><strong>ID:</strong> ${ticket.id}</p>
-        <p><strong>Creado por:</strong> ${ticket.createdBy}</p>
-        <p><strong>Fecha creación:</strong> ${formatDate(ticket.createdAt)}</p>
-        ${ticket.resolvedAt ? `<p><strong>Resuelto por:</strong> ${ticket.resolvedBy} (${formatDate(ticket.resolvedAt)})</p>` : ''}
-        <button onclick="this.parentElement.remove()" style="margin-top: 1rem">Cerrar</button>
+        <div class="ticket-modal-content">
+            <h3>${ticket.title}</h3>
+            <p class="ticket-description">${ticket.description}</p>
+            <div class="ticket-meta">
+                <p>🆔 ID: ${ticket.id}</p>
+                <p>👤 Creado por: ${ticket.createdBy}</p>
+                <p>📅 Fecha: ${formatDate(ticket.createdAt)}</p>
+                <p>📌 Estado: ${ticket.status}</p>
+            </div>
+
+            <!-- Dropdown y botones SOLO para admin -->
+             ${currentUser?.role === 'admin' ? `
+                <div class="ticket-actions">
+                    <select class="status-select" id="statusSelect-${ticket.id}" onchange="updateTicketStatus(${ticket.id})">
+                        <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Pendiente</option>
+                        <option value="in-progress" ${ticket.status === 'in-progress' ? 'selected' : ''}>En Progreso</option>
+                        <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Resuelto</option>
+                    </select>
+                    <button onclick="this.closest('.ticket-modal').remove()">Cerrar</button>
+                </div>
+            ` : ''}
+        </div>
     `;
     document.body.appendChild(modal);
-    modal.style.display = 'block';
 }
 
 // Función para ordenar tickets
@@ -261,12 +308,44 @@ async function loadUserTickets() {
 }
 
 // Mostrar/ocultar modal
-function showCreateModal() {
-    document.getElementById('createModal').style.display = 'block';
+function toggleCreateModal(action) {
+    const modal = document.getElementById('createModal');
+    if (!modal) return;
+
+    modal.style.display = action === 'show' ? 'block' : 'none';
 }
 
-function closeCreateModal() {
-    document.getElementById('createModal').style.display = 'none';
+async function createTicket(e) {
+    e.preventDefault();
+    const title = document.getElementById('ticketTitle').value;
+    const description = document.getElementById('ticketDesc').value;
+    
+    try {
+        const response = await fetch('/tickets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                title, 
+                description, 
+                username: currentUser.username 
+            }),
+        });
+
+        if (response.ok) {
+            // Limpiar campos y cerrar modal
+            document.getElementById('ticketTitle').value = '';
+            document.getElementById('ticketDesc').value = '';
+            closeCreateModal(); // <-- Cerrar modal aquí
+            showToast('Ticket creado ✔️', 'success');
+            loadTickets();
+        } else {
+            // Mostrar error si el servidor responde con código no-200
+            showToast('Error al crear ticket ❌', 'error');
+        }
+    } catch (error) {
+        // Mostrar error si hay fallo de conexión
+        showToast('Error de conexión ❌', 'error');
+    }
 }
 
 // Crear ticket
@@ -285,14 +364,17 @@ async function createTicket(e) {
                 username: currentUser.username 
             }),
         });
-        
+
         if (response.ok) {
+            document.getElementById('ticketTitle').value = '';
+            document.getElementById('ticketDesc').value = '';
+            showToast('Ticket creado exitosamente', 'success');
             closeCreateModal();
             if (currentUser.role === 'admin') loadAllTickets();
             else loadUserTickets();
         }
     } catch (error) {
-        console.error('Error al crear ticket:', error);
+        showToast('Error al crear el ticket', 'error');
     }
 }
 
@@ -303,6 +385,47 @@ function filterTickets() {
     tickets.forEach(ticket => {
         const title = ticket.querySelector('.ticket-title').textContent.toLowerCase();
         const desc = ticket.querySelector('.ticket-description').textContent.toLowerCase();
-        ticket.style.display = (title.includes(searchTerm) || desc.includes(searchTerm)) ? 'block' : 'none';
+        
+        // Solo buscar en título y descripción
+        const match = title.includes(searchTerm) || desc.includes(searchTerm);
+        ticket.style.display = match ? 'block' : 'none';
     });
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type} visible`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+window.updateTicketStatus = async (ticketId) => {
+    const newStatus = document.getElementById(`statusSelect-${ticketId}`).value;
+    
+    try {
+        await fetch(`/tickets/${ticketId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                status: newStatus,
+                resolvedBy: newStatus === 'resolved' ? currentUser.username : null // Enviar solo si es necesario
+            }),
+        });
+        
+        // Recargar tickets y cerrar modal
+        document.querySelector('.ticket-modal').remove();
+        loadTickets();
+        showToast('Estado actualizado ✔️', 'success');
+    } catch (error) {
+        showToast('Error al actualizar ❌', 'error');
+    }
+};
+
+function closeCreateModal() {
+    const modal = document.getElementById('createModal');
+    if (modal) modal.style.display = 'none'; // Ocultar modal en lugar de eliminar
 }

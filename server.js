@@ -95,37 +95,31 @@ app.get('/tickets/admin', async (req, res) => {
   }
 });
 
-// Resolver Ticket (Admin)
 // Actualizar estado del ticket (Admin)
 app.put('/tickets/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, resolvedBy } = req.body;
-
-  const validStatuses = ['open', 'in-progress', 'resolved']; // Nuevo estado intermedio
-  
-  if (!validStatuses.includes(status)) {
-      return res.status(400).send('Estado inválido');
-  }
+  const { status, resolvedBy } = req.body; // Recibir "resolvedBy" desde el frontend
 
   const updateData = {
       TableName: process.env.TICKETS_TABLE,
       Key: { id: Number(id) },
       UpdateExpression: 'set #status = :status',
       ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: { ':status': status },
+      ExpressionAttributeValues: { ':status': status }
   };
 
+  // Solo si es "resolved", añadir campos extra
   if (status === 'resolved') {
       updateData.UpdateExpression += ', resolvedAt = :resolvedAt, resolvedBy = :resolvedBy';
       updateData.ExpressionAttributeValues[':resolvedAt'] = new Date().toISOString();
-      updateData.ExpressionAttributeValues[':resolvedBy'] = resolvedBy;
+      updateData.ExpressionAttributeValues[':resolvedBy'] = resolvedBy; // Usar valor del frontend
   }
 
   try {
       await dynamoDB.update(updateData).promise();
       res.sendStatus(200);
   } catch (error) {
-      res.status(500).send('Error al actualizar el ticket');
+      res.status(500).send('Error al actualizar');
   }
 });
 

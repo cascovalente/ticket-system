@@ -6,18 +6,17 @@
 </head>
 <body>
     <header class="dashboard-header">
-        <img src="logo.png" alt="Logo" class="logo" style="width: 100px;">
+        <img src="logo.png" alt="Logo" class="logo" style="width: 80px;"> 
+        <h2 class="header-title">📋 Gestión de Tickets</h2>
         <div class="user-menu" id="userMenu">
             <span id="usernameDisplay"></span>
             <div class="menu-dropdown" id="menuDropdown">
-                <div class="menu-item" id="logoutBtn">Cerrar sesión</div>
+                <div class="menu-item" onclick="logout()">Cerrar sesión</div>
             </div>
         </div>
     </header>
 
     <main>
-        <h2 class="page-title">📋 Mis Tickets</h2>
-        
         <div class="filters">
             <input 
                 type="text" 
@@ -26,14 +25,10 @@
                 id="searchInput" 
                 onkeyup="filterTickets()"
             >
-            <select class="filter-select" id="sortCriteria" onchange="loadAllTickets()">
-                <option value="date">Más recientes primero</option>
-                <option value="id">Ordenar por ID</option>
-            </select>
-            <select class="filter-select" id="filterStatus" onchange="loadAllTickets()">
-                <option value="all">Todos los tickets</option>
+            <select class="filter-select" id="filterStatus" onchange="loadTickets()">
+                <option value="all">Todos</option>
                 <option value="open">Pendientes</option>
-                <option value="in-progress">En progreso</option>
+                <option value="in-progress">En Progreso</option>
                 <option value="resolved">Resueltos</option>
             </select>
         </div>
@@ -44,18 +39,21 @@
     </main>
 
     <!-- Botón flotante -->
-    <button class="fab" onclick="showCreateModal()">+</button>
+<!-- Botón flotante para crear tickets -->
+<button class="fab" onclick="toggleCreateModal('show')">+</button>
 
-    <!-- Modal Crear Ticket -->
-    <div id="createModal" class="ticket-modal">
-        <h3>Crear Nuevo Ticket</h3>
-        <form onsubmit="createTicket(event)">
-            <input type="text" id="ticketTitle" placeholder="Título" required>
-            <textarea id="ticketDesc" placeholder="Descripción" rows="4" required></textarea>
-            <button type="submit">Enviar</button>
-            <button type="button" onclick="closeCreateModal()">Cancelar</button>
-        </form>
-    </div>
+<!-- Modal de creación -->
+<div id="createModal">
+    <div class="modal-overlay" onclick="toggleCreateModal('hide')"></div>
+    <div class="modal-content">
+    <h3>Crear Nuevo Ticket</h3>
+    <form onsubmit="createTicket(event)">
+        <input type="text" id="ticketTitle" placeholder="Título" required>
+        <textarea id="ticketDesc" placeholder="Descripción" required></textarea>
+        <button type="submit">Enviar</button>
+        <button type="button" onclick="toggleCreateModal('hide')">Cancelar</button>
+    </form>
+</div>
 
     <script src="scripts.js"></script>
 </body>
