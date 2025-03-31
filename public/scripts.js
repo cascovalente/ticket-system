@@ -56,21 +56,25 @@ function loadUserData() {
 async function loadTickets() {
     try {
         let tickets = [];
+        const cacheBuster = `?nocache=${Date.now()}`; // Evitar caché
         
         if (currentUser?.role === 'admin') {
-            const response = await fetch('/tickets/admin');
+            const response = await fetch(`/tickets/admin${cacheBuster}`);
             tickets = await response.json();
         } else {
-            const response = await fetch(`/tickets/user/${currentUser.username}`);
+            const response = await fetch(`/tickets/user/${currentUser.username}${cacheBuster}`);
             tickets = await response.json();
         }
 
-        // Aplicar filtro de estado
+        // Aplicar filtro
         const statusFilter = document.getElementById('filterStatus').value;
-        if (statusFilter !== 'all') {
-            tickets = tickets.filter(ticket => ticket.status === statusFilter);
-        }
+        tickets = tickets.filter(ticket => {
+            if (statusFilter === 'all') return ticket.status !== 'resolved';
+            return ticket.status === statusFilter;
+        });
 
+        // Ordenar por fecha
+        tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         renderTickets(tickets, currentUser?.role === 'admin' ? '#adminTickets' : '#userTickets');
     } catch (error) {
         console.error('Error:', error);
@@ -107,8 +111,12 @@ function renderTickets(tickets, containerSelector) {
     if (!container) return;
     
     container.innerHTML = '';
-    
-    tickets.forEach(ticket => {
+
+    // Ordenar tickets por fecha (más recientes primero)
+    const sortedTickets = tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Crear elementos en orden natural (el grid CSS se encarga del layout)
+    sortedTickets.forEach(ticket => {
         const ticketElement = document.createElement('div');
         ticketElement.className = 'ticket-card';
         ticketElement.innerHTML = `
@@ -117,13 +125,17 @@ function renderTickets(tickets, containerSelector) {
             <div class="ticket-meta">
                 <p>📅 ${formatDate(ticket.createdAt)}</p>
                 <p>👤 ${ticket.createdBy}</p>
-                <p class="status-${ticket.status}">${ticket.status === 'open' ? '🟡 Pendiente' : ticket.status === 'in-progress' ? '🟠 En progreso' : '🟢 Resuelto'}</p>
+                <p class="status-${ticket.status}">${
+                    ticket.status === 'open' ? '🟡 Pendiente' : 
+                    ticket.status === 'in-progress' ? '🟠 En progreso' : '🟢 Resuelto'
+                }</p>
             </div>
         `;
         ticketElement.addEventListener('click', () => showTicketDetails(ticket));
-        container.appendChild(ticketElement);
+        container.appendChild(ticketElement); // <-- appendChild normal
     });
 }
+
 
 // Funciones auxiliares
 function truncateText(text, maxLength) {
@@ -156,18 +168,18 @@ window.resolveTicket = async (id) => {
 window.toggleForms = function() {
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
-    const toggleText = document.querySelector('.toggle-form span');
+    const toggleText = document.querySelector('.toggle-form');
     
     if (loginForm.style.display === 'none') {
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
-        toggleText.textContent = 'Regístrate aquí';
+      loginForm.style.display = 'block';
+      registerForm.style.display = 'none';
+      toggleText.innerHTML = '¿No tienes cuenta? <span>Regístrate aquí</span>';
     } else {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
-        toggleText.textContent = 'Inicia sesión aquí';
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'block';
+      toggleText.innerHTML = '¿Ya tienes cuenta? <span>Inicia sesión</span>';
     }
-};
+  };
 
 // Logout
 window.logout = function() {
@@ -194,13 +206,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     const user = await response.json();
                     setCurrentUser(user);
-                    window.location.href = user.role === 'admin' ? 'admin-dashboard.html' : 'user-dashboard.html';
+                    window.location.href = user.role === 'admin' 
+                        ? 'admin-dashboard.html' 
+                        : 'user-dashboard.html';
                 } else {
-                    alert('Credenciales incorrectas');
+                    const errorData = await response.json();
+                    showToast(errorData.error || 'Credenciales incorrectas', 'error');
                 }
             } catch (error) {
-                console.error('Error al iniciar sesión:', error);
-                alert('Error al conectar con el servidor');
+                showToast('Error de conexión', 'error');
             }
         });
     }
@@ -219,15 +233,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ username, password }),
                 });
                 
+                const result = await response.json();
+                
                 if (response.ok) {
-                    alert('Registro exitoso. Por favor inicia sesión.');
+                    showToast('Registro exitoso', 'success');
                     toggleForms();
                 } else {
-                    alert('Error al registrar usuario');
+                    showToast(result.error || 'Error al registrar', 'error'); // Mensaje del backend
                 }
             } catch (error) {
-                console.error('Error al registrar:', error);
-                alert('Error al conectar con el servidor');
+                showToast('Error de conexión', 'error');
             }
         });
     }
@@ -235,18 +250,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cargar datos según la página
     if (window.location.pathname.includes('dashboard')) {
         loadUserData();
-        if (currentUser?.role === 'user') loadUserTickets();
-        else if (currentUser?.role === 'admin') loadAllTickets();
+        
+        // Recuperar filtro guardado
+        const savedFilter = localStorage.getItem('ticketFilter') || 'all';
+        document.getElementById('filterStatus').value = savedFilter;
+        
+        // Cargar tickets con el filtro
+        loadTickets();
     }
 });
 
 // Función para mostrar el modal con detalles completos
 function showTicketDetails(ticket) {
-        const existingModal = document.querySelector('.ticket-modal');
-        if (existingModal) existingModal.remove();
+    const existingModal = document.querySelector('.ticket-modal');
+    if (existingModal) existingModal.remove();
 
-        const modal = document.createElement('div');
-        modal.className = 'ticket-modal';
+    const modal = document.createElement('div');
+    modal.className = 'ticket-modal';
     modal.innerHTML = `
         <div class="ticket-modal-content">
             <h3>${ticket.title}</h3>
@@ -258,17 +278,17 @@ function showTicketDetails(ticket) {
                 <p>📌 Estado: ${ticket.status}</p>
             </div>
 
-            <!-- Dropdown y botones SOLO para admin -->
-             ${currentUser?.role === 'admin' ? `
-                <div class="ticket-actions">
-                    <select class="status-select" id="statusSelect-${ticket.id}" onchange="updateTicketStatus(${ticket.id})">
+            <!-- Acciones -->
+            <div class="ticket-actions">
+                ${currentUser?.role === 'admin' ? `
+                    <select class="status-select" id="statusSelect-${ticket.id}" onchange="updateTicketStatus('${ticket.id}')">
                         <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Pendiente</option>
                         <option value="in-progress" ${ticket.status === 'in-progress' ? 'selected' : ''}>En Progreso</option>
                         <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Resuelto</option>
                     </select>
-                    <button onclick="this.closest('.ticket-modal').remove()">Cerrar</button>
-                </div>
-            ` : ''}
+                ` : ''}
+                <button onclick="this.closest('.ticket-modal').remove()">Cerrar</button>
+            </div>
         </div>
     `;
     document.body.appendChild(modal);
@@ -332,52 +352,18 @@ async function createTicket(e) {
         });
 
         if (response.ok) {
-            // Limpiar campos y cerrar modal
             document.getElementById('ticketTitle').value = '';
             document.getElementById('ticketDesc').value = '';
-            closeCreateModal(); // <-- Cerrar modal aquí
             showToast('Ticket creado ✔️', 'success');
-            loadTickets();
-        } else {
-            // Mostrar error si el servidor responde con código no-200
-            showToast('Error al crear ticket ❌', 'error');
-        }
-    } catch (error) {
-        // Mostrar error si hay fallo de conexión
-        showToast('Error de conexión ❌', 'error');
-    }
-}
-
-// Crear ticket
-async function createTicket(e) {
-    e.preventDefault();
-    const title = document.getElementById('ticketTitle').value;
-    const description = document.getElementById('ticketDesc').value;
-    
-    try {
-        const response = await fetch('/tickets', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                title, 
-                description, 
-                username: currentUser.username 
-            }),
-        });
-
-        if (response.ok) {
-            document.getElementById('ticketTitle').value = '';
-            document.getElementById('ticketDesc').value = '';
-            showToast('Ticket creado exitosamente', 'success');
             closeCreateModal();
-            if (currentUser.role === 'admin') loadAllTickets();
-            else loadUserTickets();
+            await loadTickets(); // ✅ Versión correcta
         }
     } catch (error) {
-        showToast('Error al crear el ticket', 'error');
+        showToast('Error al crear el ticket ❌', 'error');
     }
 }
 
+// Filtro de tickets
 function filterTickets() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const tickets = document.querySelectorAll('.ticket-card');
@@ -392,6 +378,7 @@ function filterTickets() {
     });
 }
 
+// Notificaciones Toast
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type} visible`;
@@ -403,6 +390,7 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
+//Actualizar status del ticket
 window.updateTicketStatus = async (ticketId) => {
     const newStatus = document.getElementById(`statusSelect-${ticketId}`).value;
     

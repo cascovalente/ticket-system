@@ -3,10 +3,11 @@
 <head>
     <title>Mis Tickets</title>
     <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 </head>
 <body>
     <header class="dashboard-header">
-        <img src="logo.png" alt="Logo" class="logo" style="width: 80px;"> 
+        <img src="logo.png" alt="Logo" class="logo" style="width: 120px;"> 
         <h2 class="header-title">📋 Gestión de Tickets</h2>
         <div class="user-menu" id="userMenu">
             <span id="usernameDisplay"></span>
@@ -36,8 +37,9 @@
         <div class="tickets-grid" id="userTickets">
             <!-- Tickets se cargan dinámicamente -->
         </div>
+        
     </main>
-
+    
     <!-- Botón flotante para crear tickets -->
 <button class="fab" onclick="toggleCreateModal('show')">+</button>
 

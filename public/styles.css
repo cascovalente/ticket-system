@@ -24,14 +24,17 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
-  padding: 2rem;
+  justify-content: center; /* Centrado vertical */
+  min-height: 80vh; /* Reducir espacio vertical total */
+  padding: 0 2rem; /* Sin padding vertical */
+  gap: 0.25rem; /* Separación mínima entre elementos */
 }
 
 .logo {
-  width: 150px;
-  margin: 2rem 0;
+  width: 100px;
   filter: drop-shadow(var(--shadow));
+  margin-bottom: 0;
+  align-self: center;
 }
 
 .auth-form {
@@ -41,11 +44,12 @@ body {
   box-shadow: var(--shadow);
   width: 100%;
   max-width: 400px;
+  margin: 10px 0;
 }
 
 .toggle-form {
   text-align: center;
-  margin-top: 1rem;
+  margin: 10px 0;
   cursor: pointer;
   color: var(--primary-color);
 }
@@ -56,13 +60,15 @@ body {
 
 /* Dashboard Layout */
 .dashboard-header {
-  height: 70px; /* Reducir altura */
+  height: 60px;
   padding: 0 2rem;
   background: white;
-  box-shadow: var(--shadow);
+  box-shadow:none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between; /* Restauramos esto */
+  position: relative; /* Para posicionar el logo */
+  border-radius: 0;
 }
 
 .header-title {
@@ -70,17 +76,25 @@ body {
   left: 50%;
   transform: translateX(-50%);
   font-size: 1.4rem;
+  z-index: 0; /* Detrás del logo */
 }
 
+/* Añade esto a la clase .user-menu */
 .user-menu {
-  position: relative;
   cursor: pointer;
-  padding: 0.5rem 1rem;
+  user-select: none;
+  padding: 0.5rem 0.8rem; /* Reducido de 0.8rem 1.2rem */
   border-radius: 8px;
+  transition: background 0.2s;
 }
 
+/* Opcional: Efecto hover para feedback visual */
 .user-menu:hover {
   background: #f0f4ff;
+}
+
+#usernameDisplay {
+  font-weight: 450; /* Texto más destacado */
 }
 
 .menu-dropdown {
@@ -100,7 +114,17 @@ body {
 .menu-dropdown.show {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+}
+
+.menu-item {
+  padding: 0.4rem 0.6rem; /* Espaciado interno */
+  border-radius: 4px;
+  transition: background 0.2s;
+  text-align: center; /* Texto centrado */
+}
+
+.menu-item:hover {
+  background: #f8f9fa; /* Fondo al pasar el mouse */
 }
 
 /* Tickets List */
@@ -108,16 +132,17 @@ body {
   display: grid;
   gap: 1.5rem;
   padding: 2rem;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(4, minmax(250px, 1fr)); /* 4 columnas fijas */
 }
 
 .ticket-card {
   background: white;
-  padding: 1.5rem;
+  padding: 1rem;
   border-radius: 12px;
   box-shadow: var(--shadow);
   cursor: pointer;
   transform: translateY(0);
+  animation: fadeIn 0.5s ease-out;
 }
 
 .ticket-card:hover {
@@ -173,15 +198,17 @@ button:active {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.ticket-card {
-  animation: fadeIn 0.5s ease-out;
-}
-
 /* Mejoras en tarjetas */
+
 .ticket-card {
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
+  animation: fadeIn 0.5s ease-out;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px; /* Altura mínima fija */
+  padding: 1rem; /* Asegurar padding */
 }
 
 .ticket-title {
@@ -195,10 +222,19 @@ button:active {
 }
 
 .ticket-description {
+  display: -webkit-box;
   line-clamp: 1;
-  -webkit-line-clamp: 2; /* 2 líneas */
-  height: 3em; /* Altura fija */
+  -webkit-line-clamp: 2; /* Mostrar hasta 3 líneas */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5; /* Mejor espaciado entre líneas */
+  flex-grow: 1; /* Ocupa el espacio disponible */
+  margin: 0.5rem 0; /* Separación arriba/abajo */
+  word-break: break-word;
+  max-height: none; /* Eliminar altura máxima fija */
 }
+
 
 .ticket-actions button {
   background: var(--primary-color);
@@ -268,7 +304,7 @@ button:active {
   gap: 1rem;
   padding: 1rem 2rem;
   background: white;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   align-items: center;
   border-radius: 8px;
   box-shadow: var(--shadow);
@@ -290,8 +326,8 @@ button:active {
 /* Botón flotante */
 .fab {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  bottom: 20px;
+  right: 20px;
   width: 50px;
   height: 50px;
   border-radius: 50%;

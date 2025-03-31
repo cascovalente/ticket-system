@@ -15,16 +15,22 @@ app.use(express.static('public'));
 // Registro de usuario
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
-  const params = {
-    TableName: process.env.USERS_TABLE,
-    Item: { username, password, role: 'user' },
-  };
+  const getParams = { TableName: process.env.USERS_TABLE, Key: { username } };
 
   try {
-    await dynamoDB.put(params).promise();
-    res.status(201).send({ message: 'Usuario registrado' });
+    const existingUser = await dynamoDB.get(getParams).promise();
+    if (existingUser.Item) {
+      return res.status(409).json({ error: 'Este usuario ya existe' }); // Error 409 + mensaje
+    }
+
+    await dynamoDB.put({
+      TableName: process.env.USERS_TABLE,
+      Item: { username, password, role: 'user' },
+    }).promise();
+    
+    res.status(201).json({ message: 'Registro exitoso' });
   } catch (error) {
-    res.status(500).send({ error: 'Error al registrar' });
+    res.status(500).json({ error: 'Error al registrar' });
   }
 });
 
@@ -35,13 +41,12 @@ app.post('/login', async (req, res) => {
 
   try {
     const data = await dynamoDB.get(params).promise();
-    if (data.Item && data.Item.password === password) {
-      res.json({ role: data.Item.role, username });
-    } else {
-      res.status(401).send('Credenciales inválidas');
+    if (!data.Item || data.Item.password !== password) {
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' }); // Mensaje explícito
     }
+    res.json({ role: data.Item.role, username });
   } catch (error) {
-    res.status(500).send('Error en el servidor');
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
@@ -74,8 +79,8 @@ app.get('/tickets/user/:username', async (req, res) => {
     TableName: process.env.TICKETS_TABLE,
     FilterExpression: 'createdBy = :username',
     ExpressionAttributeValues: { ':username': req.params.username },
+    ConsistentRead: true // Lectura consistente
   };
-
   try {
     const data = await dynamoDB.scan(params).promise();
     res.json(data.Items);
@@ -86,7 +91,10 @@ app.get('/tickets/user/:username', async (req, res) => {
 
 // Obtener Todos los Tickets (Admin)
 app.get('/tickets/admin', async (req, res) => {
-  const params = { TableName: process.env.TICKETS_TABLE };
+  const params = {
+    TableName: process.env.TICKETS_TABLE,
+    ConsistentRead: true // Lectura consistente
+  };
   try {
     const data = await dynamoDB.scan(params).promise();
     res.json(data.Items);
@@ -123,5 +131,6 @@ app.put('/tickets/:id', async (req, res) => {
   }
 });
 
-const PORT = 5000;
+
+const PORT = 4000;
 app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
