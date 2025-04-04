@@ -198,7 +198,12 @@ window.toggleForms = function() {
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
     const toggleText = document.querySelector('.toggle-form');
-    
+
+    if (!loginForm || !registerForm || !toggleText) {
+        console.error("Elementos no encontrados.");
+        return;
+    }
+
     if (loginForm.style.display === 'none') {
         loginForm.style.display = 'block';
         registerForm.style.display = 'none';
