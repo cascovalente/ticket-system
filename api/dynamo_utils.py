@@ -4,11 +4,11 @@ from boto3.dynamodb.conditions import Key
 from datetime import datetime
 
 # Configuración basada en variables de entorno
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+APP_REGION = os.getenv("APP_REGION", "us-east-1")
 TICKETS_TABLE_NAME = os.environ["TICKETS_TABLE"]  
 
 # Cliente de DynamoDB
-dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+dynamodb = boto3.resource("dynamodb", region_name=APP_REGION)
 TICKETS_TABLE = dynamodb.Table(TICKETS_TABLE_NAME)
 
 def create_ticket(ticket_data: dict) -> dict:
