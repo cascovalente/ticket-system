@@ -13,6 +13,28 @@ Amplify.configure({
   // URL de la API Gateway
   const API_URL = process.env.REACT_APP_API_URL;
 
+  // Toggle entre formularios de login/registro
+window.toggleForms = function() {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const toggleText = document.querySelector('.toggle-form');
+
+    if (!loginForm || !registerForm || !toggleText) {
+        console.error("Elementos del formulario no encontrados.");
+        return;
+    }
+
+    if (loginForm.style.display === 'none') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        toggleText.innerHTML = '¿No tienes cuenta? <span>Regístrate aquí</span>';
+    } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        toggleText.innerHTML = '¿Ya tienes cuenta? <span>Inicia sesión</span>';
+    }
+};
+
 // Función para mostrar/ocultar el menú de usuario
 function toggleUserMenu() {
     const dropdown = document.getElementById('menuDropdown');
@@ -190,30 +212,6 @@ window.resolveTicket = async (id) => {
         loadAllTickets();
     } catch (error) {
         console.error('Error al resolver ticket:', error);
-    }
-};
-
-// Toggle entre formularios de login/registro
-window.toggleForms = function() {
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const toggleText = document.querySelector('.toggle-form');
-
-    // Validar elementos del DOM
-    if (!loginForm || !registerForm || !toggleText) {
-        console.error("Error: Elementos del formulario no encontrados.");
-        return;
-    }
-
-    // Alternar visibilidad de formularios
-    if (loginForm.style.display === 'none' || loginForm.style.display === '') {
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
-        toggleText.innerHTML = '¿No tienes cuenta? <span>Regístrate aquí</span>';
-    } else {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
-        toggleText.innerHTML = '¿Ya tienes cuenta? <span>Inicia sesión</span>';
     }
 };
 
