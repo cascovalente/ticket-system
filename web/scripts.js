@@ -1,16 +1,16 @@
-let currentUser = null;
+import { Auth } from 'aws-amplify';
+import Amplify from 'aws-amplify';
 
-// Función para guardar el usuario en sessionStorage
-function setCurrentUser(user) {
-    currentUser = user;
-    sessionStorage.setItem('currentUser', JSON.stringify(user));
-}
+Amplify.configure({
+  Auth: {
+    region: 'TU_REGION_AWS',  // Ej: 'us-east-1'
+    userPoolId: 'TU_USER_POOL_ID',  // ID de Cognito User Pool
+    userPoolWebClientId: 'TU_APP_CLIENT_ID',  // ID de App Client en Cognito
+    authenticationFlowType: 'USER_PASSWORD_AUTH'
+  }
+});
 
-// Función para cargar el usuario desde sessionStorage
-function loadCurrentUser() {
-    const userData = sessionStorage.getItem('currentUser');
-    return userData ? JSON.parse(userData) : null;
-}
+const API_URL = 'TU_ENDPOINT_API_GATEWAY';  
 
 // Función para mostrar/ocultar el menú de usuario
 function toggleUserMenu() {
@@ -18,75 +18,97 @@ function toggleUserMenu() {
     if (dropdown) dropdown.classList.toggle('show');
 }
 
+async function login(identifier, password) {
+    try {
+      const user = await Auth.signIn(identifier, password);
+      const token = user.signInUserSession.idToken.jwtToken;
+      const role = token.payload['custom:role'] || 'user';
+      
+      // Redirección según rol
+      window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'user-dashboard.html';
+      
+    } catch (error) {
+      showToast(error.message || 'Credenciales incorrectas', 'error');
+    }
+  }
+
+  async function register(email, username, password) {
+    try {
+      await Auth.signUp({
+        username: username,
+        password: password,
+        attributes: {
+          email: email,
+          'custom:role': 'user'
+        }
+      });
+      showToast('Confirma tu correo electrónico', 'success');
+      toggleForms();
+    } catch (error) {
+      showToast(error.message || 'Error al registrar', 'error');
+    }
+  }
+
 // Cargar datos del usuario en el dashboard
-function loadUserData() {
-    currentUser = loadCurrentUser();
-    const usernameDisplay = document.getElementById('usernameDisplay');
-    
-    if (!currentUser || !usernameDisplay) {
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    usernameDisplay.textContent = currentUser.username;
-    
-    // Configurar evento para el menú de usuario
-    const userMenu = document.getElementById('userMenu');
-    if (userMenu) {
+async function loadUserData() {
+    try {
+      const user = await Auth.currentAuthenticatedUser();
+      const token = user.signInUserSession.idToken.jwtToken;
+      const role = token.payload['custom:role'] || 'user';
+      
+      // Mostrar username en la UI
+      document.getElementById('usernameDisplay').textContent = user.username;
+      
+      // Configurar menú de usuario
+      const userMenu = document.getElementById('userMenu');
+      if (userMenu) {
         userMenu.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleUserMenu();
+          e.stopPropagation();
+          document.getElementById('menuDropdown').classList.toggle('show');
         });
+      }
+      
+      return { username: user.username, role: role };
+      
+    } catch (error) {
+      window.location.href = 'login.html';
+      return null;
     }
-    
-    // Cerrar menú al hacer clic en cualquier lugar
-    document.addEventListener('DOMContentLoaded', () => {
-    // Verificar si hay usuario logueado
-    currentUser = loadCurrentUser();
-    if (!currentUser) {
-        window.location.href = 'login.html';
-        return;
-    }
-        const dropdown = document.getElementById('menuDropdown');
-        if (dropdown) dropdown.classList.remove('show');
-    });
-}
+  }
 
 // Función unificada para cargar tickets
 async function loadTickets() {
     try {
-        let tickets = [];
-        const cacheBuster = `?nocache=${Date.now()}`; // Evitar caché
-        
-        if (currentUser?.role === 'admin') {
-            const response = await fetch(`/tickets/admin${cacheBuster}`);
-            tickets = await response.json();
-        } else {
-            const response = await fetch(`/tickets/user/${currentUser.username}${cacheBuster}`);
-            tickets = await response.json();
-        }
+        const { username, role } = await loadUserData() || {};
+        if (!username) return;
 
-        // Aplicar filtro
-        const statusFilter = document.getElementById('filterStatus').value;
-        tickets = tickets.filter(ticket => {
-            if (statusFilter === 'all') return ticket.status !== 'resolved';
-            return ticket.status === statusFilter;
+        const token = (await Auth.currentSession()).idToken.jwtToken;
+        const url = role === 'admin' 
+            ? `${API_URL}/tickets/admin` 
+            : `${API_URL}/tickets/user/${username}`;
+
+        const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` }
         });
-
-        // Ordenar por fecha
-        tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        renderTickets(tickets, currentUser?.role === 'admin' ? '#adminTickets' : '#userTickets');
+        
+        const tickets = await response.json();
+        renderTickets(tickets, role === 'admin' ? '#adminTickets' : '#userTickets');
+        
     } catch (error) {
-        console.error('Error:', error);
+        showToast('Error al cargar tickets', 'error');
     }
 }
 
 // Cargar tickets del usuario
 async function loadUserTickets() {
-    if (!currentUser) return;
-    
     try {
-        const response = await fetch(`/tickets/user/${currentUser.username}`);
+        const { username } = await loadUserData() || {};
+        if (!username) return;
+        
+        const token = (await Auth.currentSession()).idToken.jwtToken;
+        const response = await fetch(`${API_URL}/tickets/user/${username}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
         const tickets = await response.json();
         renderTickets(tickets, '#userTickets');
     } catch (error) {
@@ -97,7 +119,10 @@ async function loadUserTickets() {
 // Cargar todos los tickets (admin)
 async function loadAllTickets() {
     try {
-        const response = await fetch('/tickets/admin');
+        const token = (await Auth.currentSession()).idToken.jwtToken;
+        const response = await fetch(`${API_URL}/tickets/admin`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
         const tickets = await response.json();
         renderTickets(tickets, '#adminTickets');
     } catch (error) {
@@ -150,13 +175,18 @@ function formatDate(dateString) {
 
 // Resolver ticket (admin)
 window.resolveTicket = async (id) => {
-    if (!currentUser) return;
-    
     try {
-        await fetch(`/tickets/resolve/${id}`, {
+        const { username } = await loadUserData() || {};
+        if (!username) return;
+        
+        const token = (await Auth.currentSession()).idToken.jwtToken;
+        await fetch(`${API_URL}/tickets/resolve/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resolvedBy: currentUser.username }),
+            headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ resolvedBy: username })
         });
         loadAllTickets();
     } catch (error) {
@@ -182,88 +212,55 @@ window.toggleForms = function() {
   };
 
 // Logout
-window.logout = function() {
-    sessionStorage.removeItem('currentUser');
-    window.location.href = 'login.html';
-};
+window.logout = async function() {
+    try {
+      await Auth.signOut();
+      window.location.href = 'login.html';
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
 
 // Inicialización al cargar la página
-document.addEventListener('DOMContentLoaded', () => {
-    // Configurar formulario de login
+document.addEventListener('DOMContentLoaded', async () => {
+    // Login
     if (document.getElementById('loginForm')) {
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            try {
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password }),
-                });
-                
-                if (response.ok) {
-                    const user = await response.json();
-                    setCurrentUser(user);
-                    window.location.href = user.role === 'admin' 
-                        ? 'admin-dashboard.html' 
-                        : 'user-dashboard.html';
-                } else {
-                    const errorData = await response.json();
-                    showToast(errorData.error || 'Credenciales incorrectas', 'error');
-                }
-            } catch (error) {
-                showToast('Error de conexión', 'error');
-            }
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const identifier = document.getElementById('identifier').value;
+        const password = document.getElementById('password').value;
+        await login(identifier, password);
         });
     }
     
     // Configurar formulario de registro
     if (document.getElementById('registerForm')) {
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('newUsername').value;
-            const password = document.getElementById('newPassword').value;
-            
-            try {
-                const response = await fetch('/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password }),
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showToast('Registro exitoso', 'success');
-                    toggleForms();
-                } else {
-                    showToast(result.error || 'Error al registrar', 'error'); // Mensaje del backend
-                }
-            } catch (error) {
-                showToast('Error de conexión', 'error');
-            }
+          e.preventDefault();
+          const email = document.getElementById('email').value;
+          const username = document.getElementById('username').value;
+          const password = document.getElementById('password').value;
+          await register(email, username, password);
         });
     }
     
     // Cargar datos según la página
     if (window.location.pathname.includes('dashboard')) {
-        loadUserData();
-        
-        // Recuperar filtro guardado
+        await loadUserData();
         const savedFilter = localStorage.getItem('ticketFilter') || 'all';
         document.getElementById('filterStatus').value = savedFilter;
-        
-        // Cargar tickets con el filtro
-        loadTickets();
+        await loadTickets();
     }
 });
 
 // Función para mostrar el modal con detalles completos
-function showTicketDetails(ticket) {
+async function showTicketDetails(ticket) {
     const existingModal = document.querySelector('.ticket-modal');
     if (existingModal) existingModal.remove();
+
+    // Obtener rol del usuario actual
+    const user = await Auth.currentAuthenticatedUser();
+    const role = user.signInUserSession.idToken.payload['custom:role'] || 'user';
 
     const modal = document.createElement('div');
     modal.className = 'ticket-modal';
@@ -280,7 +277,7 @@ function showTicketDetails(ticket) {
 
             <!-- Acciones -->
             <div class="ticket-actions">
-                ${currentUser?.role === 'admin' ? `
+                ${role === 'admin' ? `
                     <select class="status-select" id="statusSelect-${ticket.id}" onchange="updateTicketStatus('${ticket.id}')">
                         <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Pendiente</option>
                         <option value="in-progress" ${ticket.status === 'in-progress' ? 'selected' : ''}>En Progreso</option>
@@ -337,26 +334,29 @@ function toggleCreateModal(action) {
 
 async function createTicket(e) {
     e.preventDefault();
-    const title = document.getElementById('ticketTitle').value;
-    const description = document.getElementById('ticketDesc').value;
-    
     try {
-        const response = await fetch('/tickets', {
+        const { username } = await loadUserData() || {};
+        const token = (await Auth.currentSession()).idToken.jwtToken;
+        
+        const response = await fetch(`${API_URL}/tickets`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                title, 
-                description, 
-                username: currentUser.username 
-            }),
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                title: document.getElementById('ticketTitle').value,
+                description: document.getElementById('ticketDesc').value,
+                username: username // Añadir campo requerido por el backend
+            })
         });
-
+        
         if (response.ok) {
             document.getElementById('ticketTitle').value = '';
             document.getElementById('ticketDesc').value = '';
             showToast('Ticket creado ✔️', 'success');
             closeCreateModal();
-            await loadTickets(); // ✅ Versión correcta
+            await loadTickets();
         }
     } catch (error) {
         showToast('Error al crear el ticket ❌', 'error');
@@ -391,20 +391,27 @@ function showToast(message, type = 'success') {
 }
 
 //Actualizar status del ticket
+// ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ Modificar función completa ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 window.updateTicketStatus = async (ticketId) => {
-    const newStatus = document.getElementById(`statusSelect-${ticketId}`).value;
-    
     try {
-        await fetch(`/tickets/${ticketId}`, {
+        const { username, role } = await loadUserData() || {};
+        if (!username || role !== 'admin') return;
+        
+        const token = (await Auth.currentSession()).idToken.jwtToken;
+        const newStatus = document.getElementById(`statusSelect-${ticketId}`).value;
+        
+        await fetch(`${API_URL}/tickets/${ticketId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
             body: JSON.stringify({ 
                 status: newStatus,
-                resolvedBy: newStatus === 'resolved' ? currentUser.username : null // Enviar solo si es necesario
-            }),
+                resolvedBy: newStatus === 'resolved' ? username : null 
+            })
         });
         
-        // Recargar tickets y cerrar modal
         document.querySelector('.ticket-modal').remove();
         loadTickets();
         showToast('Estado actualizado ✔️', 'success');

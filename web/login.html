@@ -12,7 +12,8 @@
         <!-- Formulario Login -->
         <form id="loginForm" class="auth-form">
             <h2>Bienvenido</h2>
-            <input type="text" id="username" placeholder="Nombre de usuario" required>
+            <!-- Cambio en placeholder -->
+            <input type="text" id="identifier" placeholder="Correo o nombre de usuario" required>
             <input type="password" id="password" placeholder="Contraseña" required>
             <button type="submit">Ingresar</button>
         </form>
@@ -20,7 +21,9 @@
         <!-- Formulario Registro (Oculto) -->
         <form id="registerForm" class="auth-form" style="display: none;">
             <h2>Registrarse</h2>
-            <input type="text" id="newUsername" placeholder="Nombre de usuario" required>
+            <!-- Campos añadidos -->
+            <input type="email" id="email" placeholder="Correo electrónico" required>
+            <input type="text" id="username" placeholder="Nombre de usuario" required>
             <input type="password" id="newPassword" placeholder="Contraseña" required>
             <button type="submit">Crear cuenta</button>
         </form>
