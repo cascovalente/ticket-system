@@ -1,6 +1,3 @@
-import { Auth } from 'aws-amplify';
-import Amplify from 'aws-amplify';
-
 // Configuración desde variables de entorno
 Amplify.configure({
     Auth: {
@@ -203,15 +200,15 @@ window.toggleForms = function() {
     const toggleText = document.querySelector('.toggle-form');
     
     if (loginForm.style.display === 'none') {
-      loginForm.style.display = 'block';
-      registerForm.style.display = 'none';
-      toggleText.innerHTML = '¿No tienes cuenta? <span>Regístrate aquí</span>';
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        toggleText.innerHTML = '¿No tienes cuenta? <span>Regístrate aquí</span>';
     } else {
-      loginForm.style.display = 'none';
-      registerForm.style.display = 'block';
-      toggleText.innerHTML = '¿Ya tienes cuenta? <span>Inicia sesión</span>';
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        toggleText.innerHTML = '¿Ya tienes cuenta? <span>Inicia sesión</span>';
     }
-  };
+};
 
 // Logout
 window.logout = async function() {
