@@ -1,3 +1,5 @@
+const { Amplify, Auth } = window['aws_amplify'];
+
 // Configuración desde variables de entorno
 Amplify.configure({
     Auth: {
@@ -76,43 +78,41 @@ async function loadUserData() {
   }
 
 // Función unificada para cargar tickets
-async function loadTickets() {
+async function loadTickets(userType = 'auto') {
     try {
-        const { username, role } = await loadUserData() || {};
-        if (!username) return;
+        const userData = await loadUserData();
+        if (!userData?.username) return;
 
+        const { username, role } = userData;
         const token = (await Auth.currentSession()).idToken.jwtToken;
-        const url = role === 'admin' 
+        
+        // Endpoint dinámico
+        const isAdminCall = userType === 'admin' || (userType === 'auto' && role === 'admin');
+        const endpoint = isAdminCall 
             ? `${API_URL}/tickets/admin` 
             : `${API_URL}/tickets/user/${username}`;
 
-        const response = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        
+        // Fetch
+        const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
         const tickets = await response.json();
-        renderTickets(tickets, role === 'admin' ? '#adminTickets' : '#userTickets');
         
+        // Renderizado
+        renderTickets(tickets, isAdminCall ? '#adminTickets' : '#userTickets');
+
     } catch (error) {
-        showToast('Error al cargar tickets', 'error');
+        handleTicketError(error, userType);
     }
 }
 
-// Cargar tickets del usuario
-async function loadUserTickets() {
-    try {
-        const { username } = await loadUserData() || {};
-        if (!username) return;
-        
-        const token = (await Auth.currentSession()).idToken.jwtToken;
-        const response = await fetch(`${API_URL}/tickets/user/${username}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        const tickets = await response.json();
-        renderTickets(tickets, '#userTickets');
-    } catch (error) {
-        console.error('Error al cargar tickets:', error);
-    }
+// Función helper para errores
+function handleTicketError(error, userType) {
+    const errorMessages = {
+        admin: 'Error cargando tickets de administrador',
+        user: 'Error cargando tus tickets',
+        auto: 'Error cargando tickets'
+    };
+    showToast(errorMessages[userType], 'error');
+    console.error(`Error loading ${userType} tickets:`, error);
 }
 
 // Cargar todos los tickets (admin)
@@ -199,12 +199,14 @@ window.toggleForms = function() {
     const registerForm = document.getElementById('registerForm');
     const toggleText = document.querySelector('.toggle-form');
 
+    // Validar elementos del DOM
     if (!loginForm || !registerForm || !toggleText) {
-        console.error("Elementos no encontrados.");
+        console.error("Error: Elementos del formulario no encontrados.");
         return;
     }
 
-    if (loginForm.style.display === 'none') {
+    // Alternar visibilidad de formularios
+    if (loginForm.style.display === 'none' || loginForm.style.display === '') {
         loginForm.style.display = 'block';
         registerForm.style.display = 'none';
         toggleText.innerHTML = '¿No tienes cuenta? <span>Regístrate aquí</span>';
