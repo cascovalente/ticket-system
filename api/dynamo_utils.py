@@ -1,40 +1,71 @@
-import boto3
 import os
-from datetime import datetime
+import boto3
 from boto3.dynamodb.conditions import Key
+from datetime import datetime
 
-dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
-table = dynamodb.Table(os.environ['TICKETS_TABLE'])
+# Configuración basada en variables de entorno
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+TICKETS_TABLE_NAME = os.environ["TICKETS_TABLE"]  
 
-def create_ticket(ticket_data):
-    table.put_item(Item=ticket_data)
+# Cliente de DynamoDB
+dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+TICKETS_TABLE = dynamodb.Table(TICKETS_TABLE_NAME)
 
-def get_user_tickets(username):
-    response = table.query(
-        IndexName='createdBy-index',
-        KeyConditionExpression=Key('createdBy').eq(username)
-    )
-    return response.get('Items', [])
+def create_ticket(ticket_data: dict) -> dict:
+    """Crea un nuevo ticket en DynamoDB."""
+    try:
+        response = TICKETS_TABLE.put_item(Item=ticket_data)
+        return response
+    except Exception as e:
+        raise RuntimeError(f"Error creating ticket: {str(e)}") from e
 
-def get_all_tickets():
-    response = table.scan()
-    return response.get('Items', [])
+def get_user_tickets(username: str) -> list:
+    """Obtiene todos los tickets de un usuario específico."""
+    try:
+        response = TICKETS_TABLE.query(
+            IndexName="createdBy-index",
+            KeyConditionExpression=Key("createdBy").eq(username)
+        )
+        return response.get("Items", [])
+    except Exception as e:
+        raise RuntimeError(f"Error fetching user tickets: {str(e)}") from e
 
-def update_ticket_status(ticket_id, new_status, resolved_by=None):
-    update_expr = 'SET #status = :status'
-    expr_values = {':status': new_status}
-    
-    if new_status == 'resolved':
-        update_expr += ', resolvedAt = :resolvedAt, resolvedBy = :resolvedBy'
-        expr_values.update({
-            ':resolvedAt': datetime.now().isoformat(),
-            ':resolvedBy': resolved_by
-        })
-    
-    return table.update_item(
-        Key={'id': ticket_id},
-        UpdateExpression=update_expr,
-        ExpressionAttributeNames={'#status': 'status'},
-        ExpressionAttributeValues=expr_values,
-        ReturnValues='UPDATED_NEW'
-    )
+def get_all_tickets() -> list:
+    """Obtiene todos los tickets (solo para administradores)."""
+    try:
+        response = TICKETS_TABLE.scan()
+        return response.get("Items", [])
+    except Exception as e:
+        raise RuntimeError(f"Error fetching all tickets: {str(e)}") from e
+
+def update_ticket_status(ticket_id: int, new_status: str, resolved_by: str = None) -> dict:
+    """Actualiza el estado de un ticket."""
+    try:
+        update_expression = "SET #status = :status"
+        expression_values = {":status": new_status}
+
+        if new_status == "resolved":
+            update_expression += ", resolvedAt = :resolvedAt, resolvedBy = :resolvedBy"
+            expression_values[":resolvedAt"] = datetime.now().isoformat()
+            expression_values[":resolvedBy"] = resolved_by
+
+        response = TICKETS_TABLE.update_item(
+            Key={"id": ticket_id},
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues=expression_values,
+            ReturnValues="UPDATED_NEW"
+        )
+        return response
+    except Exception as e:
+        raise RuntimeError(f"Error updating ticket status: {str(e)}") from e
+
+def delete_ticket(ticket_id: int) -> dict:
+    """Elimina un ticket (solo para administradores)."""
+    try:
+        response = TICKETS_TABLE.delete_item(
+            Key={"id": ticket_id}
+        )
+        return response
+    except Exception as e:
+        raise RuntimeError(f"Error deleting ticket: {str(e)}") from e

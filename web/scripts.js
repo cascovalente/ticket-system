@@ -1,16 +1,18 @@
 import { Auth } from 'aws-amplify';
 import Amplify from 'aws-amplify';
 
+// Configuración desde variables de entorno
 Amplify.configure({
-  Auth: {
-    region: 'TU_REGION_AWS',  // Ej: 'us-east-1'
-    userPoolId: 'TU_USER_POOL_ID',  // ID de Cognito User Pool
-    userPoolWebClientId: 'TU_APP_CLIENT_ID',  // ID de App Client en Cognito
-    authenticationFlowType: 'USER_PASSWORD_AUTH'
-  }
-});
-
-const API_URL = 'TU_ENDPOINT_API_GATEWAY';  
+    Auth: {
+      region: process.env.REACT_APP_AWS_REGION,
+      userPoolId: process.env.REACT_APP_USER_POOL_ID,
+      userPoolWebClientId: process.env.REACT_APP_USER_POOL_CLIENT_ID,
+      authenticationFlowType: 'USER_PASSWORD_AUTH'
+    }
+  });
+  
+  // URL de la API Gateway
+  const API_URL = process.env.REACT_APP_API_URL;
 
 // Función para mostrar/ocultar el menú de usuario
 function toggleUserMenu() {
