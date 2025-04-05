@@ -14,7 +14,7 @@ Amplify.configure({
   const API_URL = process.env.REACT_APP_API_URL;
 
   // Toggle entre formularios de login/registro
-window.toggleForms = function() {
+toggleForms = function() {
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
     const toggleText = document.querySelector('.toggle-form');
